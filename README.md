@@ -31,6 +31,10 @@ await connection.BulkInsertAsync(data);
 connection.BulkMerge(data);
 ```
 
+```csharp
+await connection.BulkMergeAsync(data);
+```
+
 * Inserts and returns inserted entities:
 
 ```csharp

@@ -267,6 +267,63 @@ namespace Dapper.Bulk
                 DROP TABLE {tempToBeInserted};", null, transaction);
         }
 
+
+
+        /// <summary>
+        /// Upserts entities into table <typeparamref name="T"/>s (by default) asynchronously.
+        /// </summary>
+        /// <typeparam name="T">The type being inserted.</typeparam>
+        /// <param name="connection">Open SqlConnection</param>
+        /// <param name="data">Entities to insert</param>
+        /// <param name="transaction">The transaction to run under, null (the default) if none</param>
+        /// <param name="batchSize">Number of bulk items inserted together, 0 (the default) if all</param>
+        /// <param name="bulkCopyTimeout">Number of seconds before bulk command execution timeout, 30 (the default)</param>
+        /// <param name="identityInsert">Usage of db generated ids. By default DB generated IDs are used (identityInsert=false)</param>
+        public static async Task BulkMergeAsync<T>(this SqlConnection connection, IEnumerable<T> data, SqlTransaction transaction = null, int batchSize = 0, int bulkCopyTimeout = 30, bool identityInsert = false)
+        {
+            var type = typeof(T);
+            var tableName = TableMapper.GetTableName(type);
+            var allProperties = PropertiesCache.TypePropertiesCache(type);
+            var keyProperties = PropertiesCache.KeyPropertiesCache(type);
+
+            if (keyProperties.Count == 0)
+            {
+                throw new ArgumentException("Entity must have at least one [Key] property");
+            }
+
+            var computedProperties = PropertiesCache.ComputedPropertiesCache(type);
+            var columns = PropertiesCache.GetColumnNamesCache(type);
+
+            var insertProperties = allProperties.Except(computedProperties).ToList();
+            var updateProperties = insertProperties.Except(keyProperties).ToList();
+
+            var (identityInsertOn, identityInsertOff, sqlBulkCopyOptions) = GetIdentityInsertOptions(identityInsert, tableName);
+
+            var insertPropertiesString = GetColumnsStringSqlServer(insertProperties, columns);
+            var tempToBeInserted = $"#TempInsert_{tableName}".Replace(".", string.Empty);
+
+            await connection.ExecuteAsync($@"SELECT TOP 0 {insertPropertiesString} INTO {tempToBeInserted} FROM {FormatTableName(tableName)} target WITH(NOLOCK);", null, transaction);
+
+            using (var bulkCopy = new SqlBulkCopy(connection, sqlBulkCopyOptions, transaction))
+            {
+                bulkCopy.BulkCopyTimeout = bulkCopyTimeout;
+                bulkCopy.BatchSize = batchSize;
+                bulkCopy.DestinationTableName = tempToBeInserted;
+                bulkCopy.WriteToServer(ToDataTable(data, insertProperties).CreateDataReader());
+            }
+
+            await connection.ExecuteAsync($@"
+                {identityInsertOn}
+                ;MERGE {FormatTableName(tableName)} with (holdlock) as target
+                USING (SELECT {insertPropertiesString} FROM {tempToBeInserted}) as source
+                ON {string.Join(" AND ", keyProperties.Select(k => $"target.[{columns[k.Name]}] = source.[{columns[k.Name]}]"))}
+                WHEN MATCHED THEN
+                    UPDATE SET {string.Join(", ", updateProperties.Select(p => $"target.[{columns[p.Name]}] = source.[{columns[p.Name]}]"))}
+                WHEN NOT MATCHED THEN
+                    INSERT ({insertPropertiesString}) VALUES ({insertPropertiesString});
+                DROP TABLE {tempToBeInserted};", null, transaction);
+        }
+
         /// <summary>
         /// Inserts entities into table <typeparamref name="T"/>s (by default) asynchronously and returns inserted entities.
         /// </summary>
