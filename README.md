@@ -1,13 +1,13 @@
-Dapper.Bulk- bulk inserts for Dapper
+Dapper.Bulk- bulk inserts & upserts for Dapper
 ===========================================
 
 `Features` 
 --------
-Dapper.Bulk contains helper methods for bulk inserting.
+Dapper.Bulk contains helper methods for bulk inserting and upserting.
 
 `Download`
 --------
-<a href="https://www.nuget.org/packages/Dapper.Bulk/" target="_blank">Dapper.Bulk Nuget</a>
+<a href="https://www.nuget.org/packages/Sico.Dapper.Bulk/" target="_blank">Sico.Dapper.Bulk Nuget</a>
 ```
 PM> Install-Package Sico.Dapper.Bulk
 ```
