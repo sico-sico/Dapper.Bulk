@@ -9,7 +9,7 @@ Dapper.Bulk contains helper methods for bulk inserting.
 --------
 <a href="https://www.nuget.org/packages/Dapper.Bulk/" target="_blank">Dapper.Bulk Nuget</a>
 ```
-PM> Install-Package Dapper.Bulk
+PM> Install-Package Sico.Dapper.Bulk
 ```
 
 `Usage` 
@@ -23,6 +23,12 @@ connection.BulkInsert(data);
 
 ```csharp
 await connection.BulkInsertAsync(data);
+```
+
+* Upserts entities, without result for best performance, you must specify the key columns to do the matches:
+
+```csharp
+connection.BulkMerge(data);
 ```
 
 * Inserts and returns inserted entities:
